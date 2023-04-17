@@ -1,0 +1,21 @@
+<template>
+  <div class="d-flex justify-content-center">
+    <h1 class="align-self-center">No hay nada seleccionado</h1>
+  </div>
+  <FabNewEntry />
+</template>
+
+<script>
+import { defineAsyncComponent } from 'vue'
+export default {
+    components: {
+        FabNewEntry: defineAsyncComponent(() => import('@/modules/daybook/components/FabNewEntry.vue'))
+    }
+}
+</script>
+
+<style lang="scss" scoped>
+div {
+    height: 100%;
+}
+</style>
