@@ -7,11 +7,12 @@
         <span class="mx-2 fs-4 fw-light">{{ year }}</span>
       </div>
       <div>
+        <input type="file" @change="onSelectedImage" ref="imageSelector" v-show="false" accept="image/png, image/jpg, image/gif, image/bmp, image/tif">
         <button v-if="id != 'new'" class="btn btn-danger mx-2" @click="onDeleteEntry">
           Borrar
           <i class="fa fa-trash-alt"></i>
         </button>
-        <button class="btn btn-primary">
+        <button class="btn btn-primary" @click="onSelectImage">
           Subir foto
           <i class="fa fa-upload"></i>
         </button>
@@ -23,7 +24,14 @@
       </textarea>
     </div>
     <img
-      src="https://cdn.ontourmedia.io/gunsnroses/site_v2/animations/gnr_loop_logo_01.jpg"
+    v-if="entry.picture && !localImage"
+      :src="entry.picture"
+      alt="entry-picture"
+      class="img-thumbnail"
+    />
+    <img
+    v-if="localImage"
+      :src="localImage"
       alt="entry-picture"
       class="img-thumbnail"
     />
@@ -34,24 +42,23 @@
 <script>
 import { defineAsyncComponent } from "vue";
 import { mapActions, mapGetters } from "vuex";
+import Swal from 'sweetalert2'
 import getDayMonthYear from "@/modules/daybook/helpers/getDayMonthYear";
+import uploadImage from '@/modules/daybook/helpers/uploadImage'
 
 export default {
+  data() {
+    return {
+      entry: null,
+      localImage: null,
+      file: null
+    };
+  },
   props: {
     id: {
       type: String,
       required: true,
     },
-  },
-  data() {
-    return {
-      entry: null,
-    };
-  },
-  components: {
-    FabNewEntry: defineAsyncComponent(() =>
-      import("@/modules/daybook/components/FabNewEntry.vue")
-    ),
   },
   methods: {
     loadEntry() {
@@ -68,16 +75,57 @@ export default {
       this.entry = entry;
     },
     async saveEntry() {
+      new Swal({
+        title: 'Espere por favor',
+        allowOutsideClick: false
+      })
+      Swal.showLoading()
+      const picture = await uploadImage(this.file)
+      this.entry.picture = picture
+      console.log(picture)
       if(this.entry.id){
         await this.updateEntry(this.entry)
+        Swal.fire('Guardado', 'Entrada registrada con éxito', 'success')
       } else {
         await this.createEntry(this.entry)
-        return this.$router.push({name: 'entry', params: {id: this.entry.id}})
+        Swal.fire('Guardado', 'Entrada registrada con éxito', 'success')
+        this.$router.push({name: 'entry', params: {id: this.entry.id}})
       }
+      this.file = null
     },
     async onDeleteEntry() {
-      await this.deleteEntry(this.entry.id)
-      return this.$router.push({name: 'no-entry'})
+      const {isConfirmed} = await Swal.fire({
+        title: '¿Estás seguro de eliminar esta entrada?',
+        text: 'Una vez borrada no se puede recuperar',
+        showDenyButton: true,
+        confirmButtonText: 'Sí, estoy seguro'
+      })
+      if(isConfirmed) {
+        new Swal({
+          title: 'Espere por favor',
+          allowOutsideClick: false
+        })
+        Swal.showLoading()
+        await this.deleteEntry(this.entry.id)
+        this.$router.push({name: 'no-entry'})
+        Swal.fire('Eliminado', '', 'success')
+      }
+    },
+    onSelectedImage(event) {
+      // Obtenemos el archivo del input
+      const file = event.target.files[0]
+      if(!file) {
+        this.localImage = null
+        this.file = null
+        return
+      }
+      this.file = file
+      const fileReader = new FileReader()
+      fileReader.onload = () => this.localImage = fileReader.result
+      fileReader.readAsDataURL(file)
+    },
+    onSelectImage() {
+      this.$refs.imageSelector.click()
     },
     ...mapActions('journal', ['updateEntry', 'createEntry', 'deleteEntry'])
   },
@@ -103,6 +151,11 @@ export default {
     id() {
       this.loadEntry();
     },
+  },
+  components: {
+    FabNewEntry: defineAsyncComponent(() =>
+      import("@/modules/daybook/components/FabNewEntry.vue")
+    ),
   },
 };
 </script>
